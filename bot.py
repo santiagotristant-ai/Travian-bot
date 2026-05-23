@@ -5,15 +5,17 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ── Configuración ──────────────────────────────────────────
-TOKEN   = "8711857960:AAGDUQjeumriJnZNLK-Htbmc_lnOXnpv9rE"
-CHAT_ID = 743358609
-MESSAGE = "mandar listas"
-INTERVAL = 10 * 60   # segundos (600)
+TOKEN    = "8711857960:AAGDUQjeumriJnZNLK-Htbmc_lnOXnpv9rE"
+CHAT_ID  = 743358609
+MESSAGE  = "mandar listas"
+INTERVAL = 10 * 60  # segundos
 # ───────────────────────────────────────────────────────────
 
 logging.basicConfig(level=logging.INFO)
+
 bot_running = False
 send_count  = 0
+loop_task   = None  # referencia única al loop activo
 
 async def send_loop(app: Application):
     global bot_running, send_count
@@ -28,30 +30,53 @@ async def send_loop(app: Application):
         await asyncio.sleep(INTERVAL)
 
 async def start_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    global bot_running
+    global bot_running, loop_task
+
     if update.effective_chat.id != CHAT_ID:
         return
+
     if bot_running:
         await update.message.reply_text("⚠️ El bot ya está corriendo.")
         return
+
+    # Cancelar cualquier loop residual antes de arrancar uno nuevo
+    if loop_task and not loop_task.done():
+        loop_task.cancel()
+        try:
+            await loop_task
+        except asyncio.CancelledError:
+            pass
+
     bot_running = True
+    loop_task = asyncio.create_task(send_loop(ctx.application))
+
     await update.message.reply_text(
         "✅ Bot iniciado.\n"
-        f"📨 Enviará *mandar listas* cada *10 min*.",
+        f"📨 Enviará *mandar listas* cada *10 minutos*.",
         parse_mode="Markdown"
     )
-    asyncio.create_task(send_loop(ctx.application))
 
 async def stop_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    global bot_running
+    global bot_running, loop_task
+
     if update.effective_chat.id != CHAT_ID:
         return
+
     if not bot_running:
         await update.message.reply_text("⚠️ El bot ya estaba detenido.")
         return
+
     bot_running = False
+
+    if loop_task and not loop_task.done():
+        loop_task.cancel()
+        try:
+            await loop_task
+        except asyncio.CancelledError:
+            pass
+
     await update.message.reply_text(
-        f"🛑 Bot detenido.\n📊 Mensajes enviados en esta sesión: *{send_count}*",
+        f"🛑 Bot detenido.\n📊 Mensajes enviados: *{send_count}*",
         parse_mode="Markdown"
     )
 
@@ -62,14 +87,14 @@ async def status_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"*Estado:* {estado}\n"
         f"*Mensajes enviados:* {send_count}\n"
-        f"*Intervalo:* 9 min 50 seg",
+        f"*Intervalo:* 10 minutos",
         parse_mode="Markdown"
     )
 
 def main():
     app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start_cmd))
-    app.add_handler(CommandHandler("stop",  stop_cmd))
+    app.add_handler(CommandHandler("start",  start_cmd))
+    app.add_handler(CommandHandler("stop",   stop_cmd))
     app.add_handler(CommandHandler("status", status_cmd))
     logging.info("Bot escuchando...")
     app.run_polling()
