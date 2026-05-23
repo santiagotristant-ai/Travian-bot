@@ -8,7 +8,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 TOKEN   = "8711857960:AAGDUQjeumriJnZNLK-Htbmc_lnOXnpv9rE"
 CHAT_ID = 743358609
 MESSAGE = "mandar listas"
-INTERVAL = 9 * 60 + 50  # segundos (590)
+INTERVAL = 10 * 60   # segundos (600)
 # ───────────────────────────────────────────────────────────
 
 logging.basicConfig(level=logging.INFO)
@@ -37,7 +37,7 @@ async def start_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     bot_running = True
     await update.message.reply_text(
         "✅ Bot iniciado.\n"
-        f"📨 Enviará *mandar listas* cada *9 min 50 seg*.",
+        f"📨 Enviará *mandar listas* cada *10 min*.",
         parse_mode="Markdown"
     )
     asyncio.create_task(send_loop(ctx.application))
